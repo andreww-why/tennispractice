@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tennis Practice Planner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1923;
+      --surface: #1a2634;
+      --surface2: #243447;
+      --surface3: #2d4057;
+      --court: #2e7d32;
+      --court2: #1b5e20;
+      --accent: #f9d342;
+      --text: #e8eaf0;
+      --muted: #7a8fa8;
+      --gold: #ffc107;
+      --orange: #e65100;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, var(--court2) 0%, var(--court) 60%, #43a047 100%);
+      padding: 22px 20px 18px;
+      text-align: center;
+      border-bottom: 3px solid var(--accent);
+    }
+    .header h1 { font-size: 1.9rem; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+    .header p  { color: rgba(255,255,255,0.75); margin-top: 4px; font-size: 0.9rem; }
+
+    /* ── Setup panel ── */
+    .setup {
+      max-width: 680px;
+      margin: 28px auto 0;
+      padding: 0 16px;
+    }
+    .setup-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 22px;
+      border: 1px solid var(--surface2);
+    }
+    .setup-card h2 {
+      font-size: 1rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .count-pill {
+      background: var(--accent);
+      color: #1a1a1a;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 9px;
+      border-radius: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 140px;
+      padding: 13px;
+      background: var(--bg);
+      border: 2px solid var(--surface2);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.92rem;
+      line-height: 1.65;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* ── Pre-lock section ── */
+    .prelock-section {
+      margin-top: 16px;
+      background: var(--bg);
+      border: 1px solid var(--surface2);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .prelock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface2);
+      cursor: pointer;
+      user-select: none;
+      gap: 10px;
+    }
+    .prelock-header:hover { background: var(--surface3); }
+
+    .prelock-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .prelock-hint {
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+    .prelock-chevron {
+      font-size: 0.75rem;
+      color: var(--muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .prelock-chevron.open { transform: rotate(180deg); }
+
+    .prelock-body {
+      padding: 14px;
+    }
+
+    /* Player chip pool */
+    .pool-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .player-pool {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      min-height: 36px;
+    }
+
+    .pool-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px 5px 6px;
+      border: 2px solid var(--surface2);
+      border-radius: 20px;
+      background: var(--surface2);
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      user-select: none;
+    }
+    .pool-chip:hover { border-color: var(--accent); background: var(--surface3); }
+    .pool-chip.selected {
+      border-color: var(--accent);
+      background: rgba(249,211,66,0.12);
+      color: var(--accent);
+    }
+    .pool-chip .chip-avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .pool-empty {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    /* Pending selection prompt */
+    .pending-prompt {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(249,211,66,0.08);
+      border: 1px dashed var(--accent);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+
+    /* Locked pairs list */
+    .locked-pairs {
+      margin-top: 14px;
+      border-top: 1px solid var(--surface2);
+      padding-top: 12px;
+    }
+
+    .locked-pair-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .pair-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px 4px 6px;
+      border-radius: 20px;
+      background: rgba(255,193,7,0.12);
+      border: 1.5px solid var(--gold);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    .pair-chip .chip-avatar {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.58rem;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .pair-link {
+      font-size: 0.75rem;
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .remove-pair-btn {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--surface2);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .remove-pair-btn:hover { border-color: #e57373; color: #e57373; }
+
+    /* ── Actions ── */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 11px 22px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.15s;
+    }
+    .btn:hover  { opacity: 0.9; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: var(--accent); color: #1a1a1a; }
+    .btn-ghost   { background: var(--surface2); color: var(--text); }
+
+    /* ── Rounds layout ── */
+    .rounds-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      max-width: 1180px;
+      margin: 24px auto 40px;
+      padding: 0 16px;
+    }
+    @media (max-width: 780px) {
+      .rounds-wrapper { grid-template-columns: 1fr; }
+    }
+
+    .round-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 11px 14px;
+      background: var(--surface);
+      border-radius: 12px;
+      border-left: 4px solid var(--accent);
+    }
+    .round-title { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+    .round-meta  { font-size: 0.75rem; color: var(--muted); font-weight: 400; margin-left: 6px; }
+
+    .btn-sm {
+      padding: 6px 13px;
+      font-size: 0.78rem;
+      border-radius: 8px;
+      background: var(--surface2);
+      color: var(--text);
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn-sm:hover { background: var(--surface3); }
+
+    /* ── Court card ── */
+    .court-card {
+      background: var(--surface);
+      border-radius: 14px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      border: 1px solid var(--surface2);
+    }
+    .court-card.remainder { border-color: #bf360c; }
+
+    .court-label {
+      background: var(--court);
+      padding: 7px 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+    }
+    .court-card.remainder .court-label { background: var(--orange); }
+
+    .rem-badge {
+      background: rgba(255,255,255,0.22);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+    }
+
+    /* ── Court body ── */
+    .court-body { display: flex; align-items: stretch; }
+
+    .net {
+      width: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface2);
+      flex-shrink: 0;
+      gap: 4px;
+      padding: 10px 0;
+    }
+    .net-dot { width: 4px; height: 4px; background: var(--accent); border-radius: 50%; }
+    .net-line { width: 2px; flex: 1; background: rgba(249,211,66,0.25); max-height: 16px; }
+    .vs-text {
+      font-size: 0.62rem; font-weight: 800; color: var(--accent);
+      writing-mode: vertical-lr; letter-spacing: 3px; opacity: 0.9;
+    }
+
+    /* ── Team ── */
+    .team {
+      flex: 1; padding: 10px;
+      display: flex; flex-direction: column; gap: 5px; min-width: 0;
+    }
+    .team-controls { display: flex; justify-content: flex-end; margin-bottom: 1px; }
+
+    .lock-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 9px;
+      border: 1px solid var(--surface2); border-radius: 7px;
+      background: none; color: var(--muted);
+      font-size: 0.73rem; font-weight: 600;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .lock-btn.locked {
+      border-color: var(--gold); color: var(--gold);
+      background: rgba(255,193,7,0.1);
+    }
+    .lock-btn.prelock {
+      border-color: var(--gold); color: var(--gold);
+      background: rgba(255,193,7,0.07);
+      cursor: default; opacity: 0.75;
+    }
+
+    /* ── Player card ── */
+    .player-card {
+      background: var(--surface2);
+      border: 2px solid transparent; border-radius: 10px;
+      padding: 8px 11px;
+      display: flex; align-items: center; gap: 9px;
+      cursor: grab;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s, opacity 0.15s;
+      user-select: none; min-width: 0;
+    }
+    .player-card:hover:not(.locked) { border-color: var(--accent); background: var(--surface3); }
+    .player-card.locked {
+      cursor: not-allowed;
+      border-color: var(--gold); background: rgba(255,193,7,0.07);
+    }
+    .player-card.dragging { opacity: 0.25; transform: scale(0.97); }
+    .player-card.drag-over {
+      border-color: var(--accent) !important;
+      background: rgba(249,211,66,0.13) !important;
+      transform: scale(1.04);
+    }
+    .player-card:active:not(.locked) { cursor: grabbing; }
+
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 800; color: #fff;
+      flex-shrink: 0; text-transform: uppercase;
+    }
+    .player-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lock-icon   { margin-left: auto; font-size: 0.7rem; opacity: 0.7; flex-shrink: 0; }
+
+    /* ── Empty drop zone ── */
+    .drop-zone {
+      border: 2px dashed var(--surface3); border-radius: 10px;
+      padding: 10px 11px; color: var(--muted); font-size: 0.78rem;
+      text-align: center; min-height: 46px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .drop-zone.drag-over {
+      border-color: var(--accent); background: rgba(249,211,66,0.08); color: var(--accent);
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--muted); max-width: 460px; margin: 0 auto;
+    }
+    .empty-state .ball { font-size: 4rem; margin-bottom: 14px; }
+    .empty-state h3    { font-size: 1.25rem; color: var(--text); margin-bottom: 8px; }
+    .empty-state p     { font-size: 0.88rem; line-height: 1.6; }
+
+    /* ── Hint bar ── */
+    .hint { max-width: 680px; margin: 12px auto 0; padding: 0 16px; }
+    .hint p { font-size: 0.78rem; color: var(--muted); text-align: center; }
+    .hint span { display: inline-block; background: var(--surface); padding: 1px 7px; border-radius: 5px; margin: 0 2px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎾 Tennis Practice Planner</h1>
+  <p>Two rounds of doubles · drag-and-drop · lock pairs</p>
+</div>
+
+<div class="setup">
+  <div class="setup-card">
+    <h2>
+      Players
+      <span id="count-pill" class="count-pill" style="display:none">0</span>
+    </h2>
+
+    <textarea id="names-input"
+      placeholder="Paste player names — one per line or comma-separated:&#10;&#10;Alice, Bob, Charlie, Diana&#10;Eve&#10;Frank, Grace, Henry"
+      oninput="onNamesInput()"></textarea>
+
+    <!-- Pre-lock section -->
+    <div class="prelock-section" id="prelock-section" style="display:none">
+      <div class="prelock-header" onclick="togglePrelock()">
+        <span class="prelock-title">🔒 Pre-lock Pairs</span>
+        <span class="prelock-hint" id="prelock-hint">Click a player to start pairing</span>
+        <span class="prelock-chevron" id="prelock-chevron">▼</span>
+      </div>
+      <div class="prelock-body" id="prelock-body">
+        <div class="pool-label">Available players</div>
+        <div class="player-pool" id="player-pool"></div>
+        <div id="pending-prompt" style="display:none" class="pending-prompt"></div>
+        <div id="locked-pairs" class="locked-pairs" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="generatePairings()">Generate Rounds</button>
+      <button class="btn btn-ghost"   onclick="copySchedule()">Copy Schedule</button>
+      <button class="btn btn-ghost"   onclick="clearAll()" style="margin-left:auto">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="hint" id="hint" style="display:none">
+  <p>
+    <span>Drag</span> players to swap positions within a round ·
+    <span>🔒 Lock</span> a pair to keep them together in Round 2 ·
+    <span>↺</span> reshuffles unlocked players
+  </p>
+</div>
+
+<div id="rounds-container"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let state = {
+  players: [],
+  preLocked: [],      // [[a,b], [c,d], ...] — locked before generation
+  pendingLock: null,  // name of first-selected player waiting for a partner
+  prelockOpen: true,
+  rounds: [{ courts: [] }, { courts: [] }]
+};
+
+let dragState = null;
+
+// ─────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function parseNames(input) {
+  return input.split(/[\n,;]+/).map(n => n.trim()).filter(n => n.length > 0);
+}
+
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  '#1565C0','#6A1B9A','#00695C','#E65100',
+  '#4527A0','#AD1457','#00838F','#558B2F',
+  '#4E342E','#37474F','#0277BD','#2E7D32'
+];
+function avatarColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+// ─────────────────────────────────────────────
+// Pre-lock UI
+// ─────────────────────────────────────────────
+function onNamesInput() {
+  const names = parseNames(document.getElementById('names-input').value);
+
+  // Drop any pre-locks for names that no longer exist
+  const nameSet = new Set(names);
+  state.preLocked = state.preLocked.filter(([a, b]) => nameSet.has(a) && nameSet.has(b));
+  if (state.pendingLock && !nameSet.has(state.pendingLock)) state.pendingLock = null;
+
+  updateCountPill(names);
+  renderPrelock(names);
+}
+
+function updateCountPill(names) {
+  const pill = document.getElementById('count-pill');
+  if (names.length > 0) { pill.textContent = names.length; pill.style.display = 'inline-block'; }
+  else pill.style.display = 'none';
+}
+
+function togglePrelock() {
+  state.prelockOpen = !state.prelockOpen;
+  document.getElementById('prelock-body').style.display = state.prelockOpen ? 'block' : 'none';
+  document.getElementById('prelock-chevron').classList.toggle('open', state.prelockOpen);
+}
+
+function renderPrelock(names) {
+  const section = document.getElementById('prelock-section');
+  if (!names || names.length < 2) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('prelock-body').style.display = state.prelockOpen ? 'block' : 'none';
+  document.getElementById('prelock-chevron').classList.toggle('open', state.prelockOpen);
+
+  const lockedSet = new Set(state.preLocked.flat());
+  const available = names.filter(n => !lockedSet.has(n));
+
+  // Pool
+  const pool = document.getElementById('player-pool');
+  if (available.length === 0) {
+    pool.innerHTML = '<span class="pool-empty">All players are paired.</span>';
+  } else {
+    pool.innerHTML = available.map(name => {
+      const isPending = state.pendingLock === name;
+      return `<span class="pool-chip${isPending ? ' selected' : ''}" onclick="selectForLock('${CSS.escape(name)}')">
+        <span class="chip-avatar" style="background:${avatarColor(name)}">${initials(name)}</span>
+        ${name}
+      </span>`;
+    }).join('');
+  }
+
+  // Pending prompt
+  const prompt = document.getElementById('pending-prompt');
+  if (state.pendingLock) {
+    prompt.style.display = 'block';
+    prompt.innerHTML = `<strong>${state.pendingLock}</strong> selected — now click a second player to lock them as a pair, or click again to deselect.`;
+  } else {
+    prompt.style.display = 'none';
+  }
+
+  // Locked pairs list
+  const pairsEl = document.getElementById('locked-pairs');
+  if (state.preLocked.length === 0) {
+    pairsEl.style.display = 'none';
+  } else {
+    pairsEl.style.display = 'block';
+    pairsEl.innerHTML = `
+      <div class="pool-label" style="margin-bottom:8px">Locked pairs — always kept together</div>
+      ${state.preLocked.map(([a, b], idx) => `
+        <div class="locked-pair-row">
+          <span class="pair-chip">
+            <span class="chip-avatar" style="background:${avatarColor(a)}">${initials(a)}</span>
+            ${a}
+          </span>
+          <span class="pair-link">🔒</span>
+          <span class="pair-chip">
+            <span class="chip-avatar" style="background:${avatarColor(b)}">${initials(b)}</span>
+            ${b}
+          </span>
+          <button class="remove-pair-btn" onclick="removeLock(${idx})">✕ Remove</button>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // Hint text
+  const hint = document.getElementById('prelock-hint');
+  if (state.preLocked.length > 0) {
+    hint.textContent = `${state.preLocked.length} pair${state.preLocked.length > 1 ? 's' : ''} locked`;
+  } else if (state.pendingLock) {
+    hint.textContent = 'Select a second player…';
+  } else {
+    hint.textContent = 'Click a player to start pairing';
+  }
+}
+
+function selectForLock(name) {
+  if (state.pendingLock === null) {
+    state.pendingLock = name;
+  } else if (state.pendingLock === name) {
+    // Deselect
+    state.pendingLock = null;
+  } else {
+    // Form the pair
+    state.preLocked.push([state.pendingLock, name]);
+    state.pendingLock = null;
+  }
+  renderPrelock(parseNames(document.getElementById('names-input').value));
+}
+
+function removeLock(idx) {
+  state.preLocked.splice(idx, 1);
+  renderPrelock(parseNames(document.getElementById('names-input').value));
+}
+
+// ─────────────────────────────────────────────
+// Court building
+// ─────────────────────────────────────────────
+
+// Builds teams respecting pre-locked pairs, then groups into courts.
+function makeRound1(players) {
+  const lockedSet = new Set(state.preLocked.flat());
+  const individuals = shuffle(players.filter(p => !lockedSet.has(p)));
+
+  // Build team list: pre-locked pairs first (shuffled for court variety), then individual pairs
+  const teams = [];
+  shuffle([...state.preLocked]).forEach(pair => {
+    teams.push({ players: [...pair], locked: true });
+  });
+  for (let i = 0; i + 1 < individuals.length; i += 2) {
+    teams.push({ players: [individuals[i], individuals[i + 1]], locked: false });
+  }
+  if (individuals.length % 2 !== 0) {
+    teams.push({ players: [individuals[individuals.length - 1]], locked: false });
+  }
+
+  // Shuffle team order so pre-locked pairs land on random courts
+  const shuffled = shuffle(teams);
+  const courts = [];
+  for (let i = 0; i < shuffled.length; i += 2) {
+    const t1 = shuffled[i];
+    const t2 = shuffled[i + 1] || { players: [], locked: false };
+    const total = t1.players.length + t2.players.length;
+    courts.push({ teams: [t1, t2], isRemainder: total < 4 });
+  }
+  return { courts };
+}
+
+function makeRound2(round1) {
+  const lockedSlots = [];
+  const unlocked    = [];
+
+  round1.courts.forEach((court, ci) => {
+    court.teams.forEach((team, ti) => {
+      if (team.locked) {
+        lockedSlots.push({ ci, ti, players: [...team.players] });
+      } else {
+        unlocked.push(...team.players);
+      }
+    });
+  });
+
+  // Interleave: former partners become opponents
+  const n = unlocked.length;
+  const half = Math.floor(n / 2);
+  const rotated = [];
+  for (let i = 0; i < half; i++) {
+    rotated.push(unlocked[i]);
+    rotated.push(unlocked[i + half]);
+  }
+  if (n % 2 !== 0) rotated.push(unlocked[n - 1]);
+
+  if (lockedSlots.length === 0) {
+    return { courts: buildCourtsFromPlayers(rotated) };
+  }
+
+  // Keep locked teams in their same court+team slot; fill rest with rotated players
+  const r2Courts = round1.courts.map(c => ({
+    isRemainder: c.isRemainder,
+    teams: c.teams.map(t =>
+      t.locked ? { players: [...t.players], locked: true } : null
+    )
+  }));
+
+  let ui = 0;
+  r2Courts.forEach((court, ci) => {
+    court.teams.forEach((team, ti) => {
+      if (team === null) {
+        const size = round1.courts[ci].teams[ti].players.length;
+        const players = [];
+        for (let k = 0; k < size && ui < rotated.length; k++) players.push(rotated[ui++]);
+        r2Courts[ci].teams[ti] = { players, locked: false };
+      }
+    });
+  });
+
+  return { courts: r2Courts };
+}
+
+// Simple court builder used only when there are no pre-locks
+function buildCourtsFromPlayers(players) {
+  const courts = [];
+  let i = 0;
+  while (i + 4 <= players.length) {
+    courts.push({
+      teams: [
+        { players: [players[i],   players[i+1]], locked: false },
+        { players: [players[i+2], players[i+3]], locked: false }
+      ],
+      isRemainder: false
+    });
+    i += 4;
+  }
+  if (i < players.length) {
+    const rem = players.slice(i);
+    const mid = Math.ceil(rem.length / 2);
+    courts.push({
+      teams: [
+        { players: rem.slice(0, mid), locked: false },
+        { players: rem.slice(mid),    locked: false }
+      ],
+      isRemainder: true
+    });
+  }
+  return courts;
+}
+
+// ─────────────────────────────────────────────
+// User actions
+// ─────────────────────────────────────────────
+function generatePairings() {
+  const names = parseNames(document.getElementById('names-input').value);
+  if (names.length < 2) { alert('Enter at least 2 player names.'); return; }
+  state.players = names;
+  state.rounds[0] = makeRound1(names);
+  state.rounds[1] = makeRound2(state.rounds[0]);
+  render();
+}
+
+function reshuffleRound2() {
+  if (!state.players.length) return;
+  state.rounds[1] = makeRound2(state.rounds[0]);
+  render();
+}
+
+function shuffleRound1() {
+  if (!state.players.length) return;
+  state.rounds[0] = makeRound1(state.players);
+  state.rounds[1] = makeRound2(state.rounds[0]);
+  render();
+}
+
+function toggleLock(roundIdx, courtIdx, teamIdx) {
+  const team = state.rounds[roundIdx].courts[courtIdx].teams[teamIdx];
+  if (team.isPreLocked) return; // pre-locked pairs can't be toggled from here
+  team.locked = !team.locked;
+  if (roundIdx === 0) state.rounds[1] = makeRound2(state.rounds[0]);
+  render();
+}
+
+function clearAll() {
+  state = {
+    players: [], preLocked: [], pendingLock: null, prelockOpen: true,
+    rounds: [{ courts: [] }, { courts: [] }]
+  };
+  document.getElementById('names-input').value = '';
+  document.getElementById('prelock-section').style.display = 'none';
+  document.getElementById('count-pill').style.display = 'none';
+  render();
+}
+
+function copySchedule() {
+  if (!state.rounds[0].courts.length) { alert('Generate rounds first.'); return; }
+  let out = '=== Tennis Practice Schedule ===\n\n';
+  state.rounds.forEach((round, ri) => {
+    out += `── Round ${ri + 1} ──\n`;
+    round.courts.forEach((court, ci) => {
+      const label = court.isRemainder ? 'Remainder' : `Court ${ci + 1}`;
+      const t0 = court.teams[0].players.join(' & ') || '(empty)';
+      const t1 = court.teams[1].players.join(' & ') || '(empty)';
+      out += `  ${label}: ${t0}  vs  ${t1}\n`;
+    });
+    out += '\n';
+  });
+  navigator.clipboard.writeText(out).then(
+    () => alert('Schedule copied to clipboard!'),
+    () => alert('Copy failed — try again.')
+  );
+}
+
+// ─────────────────────────────────────────────
+// Drag & Drop
+// ─────────────────────────────────────────────
+function onDragStart(e, roundIdx, courtIdx, teamIdx, playerIdx) {
+  const team = state.rounds[roundIdx].courts[courtIdx].teams[teamIdx];
+  if (team.locked) { e.preventDefault(); return; }
+  dragState = { roundIdx, courtIdx, teamIdx, playerIdx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', '');
+  setTimeout(() => {
+    const el = document.querySelector(`[data-did="${roundIdx}-${courtIdx}-${teamIdx}-${playerIdx}"]`);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function onDragEnd() {
+  document.querySelectorAll('.player-card, .drop-zone')
+    .forEach(el => el.classList.remove('dragging', 'drag-over'));
+  dragState = null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragEnter(e, rid, cid, tid, pid) {
+  e.preventDefault();
+  if (!dragState || dragState.roundIdx !== rid) return;
+  if (state.rounds[rid].courts[cid].teams[tid].locked) return;
+  const key = pid === 'empty' ? `empty-${rid}-${cid}-${tid}` : `${rid}-${cid}-${tid}-${pid}`;
+  const el = document.querySelector(`[data-did="${key}"]`);
+  if (el) el.classList.add('drag-over');
+}
+
+function onDragLeave(e, rid, cid, tid, pid) {
+  const key = pid === 'empty' ? `empty-${rid}-${cid}-${tid}` : `${rid}-${cid}-${tid}-${pid}`;
+  const el = document.querySelector(`[data-did="${key}"]`);
+  if (el && !el.contains(e.relatedTarget)) el.classList.remove('drag-over');
+}
+
+function onDrop(e, rid, cid, tid, pid) {
+  e.preventDefault();
+  e.stopPropagation();
+  const key = pid === 'empty' ? `empty-${rid}-${cid}-${tid}` : `${rid}-${cid}-${tid}-${pid}`;
+  const el = document.querySelector(`[data-did="${key}"]`);
+  if (el) el.classList.remove('drag-over');
+
+  if (!dragState || dragState.roundIdx !== rid) { dragState = null; return; }
+
+  const src     = dragState;
+  const srcTeam = state.rounds[src.roundIdx].courts[src.courtIdx].teams[src.teamIdx];
+  const tgtTeam = state.rounds[rid].courts[cid].teams[tid];
+
+  if (tgtTeam.locked) { dragState = null; return; }
+
+  if (pid === 'empty') {
+    const player = srcTeam.players.splice(src.playerIdx, 1)[0];
+    tgtTeam.players.push(player);
+  } else {
+    if (src.courtIdx === cid && src.teamIdx === tid && src.playerIdx === pid) {
+      dragState = null; return;
+    }
+    const tmp = srcTeam.players[src.playerIdx];
+    srcTeam.players[src.playerIdx] = tgtTeam.players[pid];
+    tgtTeam.players[pid] = tmp;
+  }
+
+  dragState = null;
+  render();
+}
+
+// ─────────────────────────────────────────────
+// Render rounds
+// ─────────────────────────────────────────────
+function render() {
+  const container = document.getElementById('rounds-container');
+  const hint      = document.getElementById('hint');
+  const hasCourts = state.rounds[0].courts.length > 0;
+
+  hint.style.display = hasCourts ? 'block' : 'none';
+
+  if (!hasCourts) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="ball">🎾</div>
+        <h3>Ready to plan your practice?</h3>
+        <p>Enter player names above, optionally pre-lock pairs,<br>then click <strong>Generate Rounds</strong>.</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="rounds-wrapper">
+      ${renderRound(0)}
+      ${renderRound(1)}
+    </div>`;
+}
+
+function renderRound(ri) {
+  const round      = state.rounds[ri];
+  const fullCourts = round.courts.filter(c => !c.isRemainder).length;
+  const hasRem     = round.courts.some(c => c.isRemainder);
+
+  return `
+    <div>
+      <div class="round-header">
+        <span>
+          <span class="round-title">Round ${ri + 1}</span>
+          <span class="round-meta">${fullCourts} court${fullCourts !== 1 ? 's' : ''}${hasRem ? ' + remainder' : ''}</span>
+        </span>
+        <button class="btn-sm" onclick="${ri === 0 ? 'shuffleRound1' : 'reshuffleRound2'}()">↺ Reshuffle</button>
+      </div>
+      ${round.courts.map((c, ci) => renderCourt(ri, ci, c)).join('')}
+    </div>`;
+}
+
+function renderCourt(ri, ci, court) {
+  return `
+    <div class="court-card${court.isRemainder ? ' remainder' : ''}">
+      <div class="court-label">
+        <span>${court.isRemainder ? '⚠ Remainder Court' : `Court ${ci + 1}`}</span>
+        ${court.isRemainder ? '<span class="rem-badge">partial — rotate or rally</span>' : ''}
+      </div>
+      <div class="court-body">
+        ${renderTeam(ri, ci, 0, court.teams[0])}
+        <div class="net">
+          <div class="net-dot"></div>
+          <div class="net-line"></div>
+          <span class="vs-text">VS</span>
+          <div class="net-line"></div>
+          <div class="net-dot"></div>
+        </div>
+        ${renderTeam(ri, ci, 1, court.teams[1])}
+      </div>
+    </div>`;
+}
+
+function renderTeam(ri, ci, ti, team) {
+  const locked = team.locked;
+  // Pre-locked pairs show a distinct non-clickable badge
+  const isPreLock = locked && state.preLocked.some(
+    ([a, b]) => team.players.includes(a) && team.players.includes(b)
+  );
+
+  const lockBtn = isPreLock
+    ? `<span class="lock-btn prelock" title="Pre-locked before generation">🔒 Pre-locked</span>`
+    : `<button class="lock-btn${locked ? ' locked' : ''}" onclick="toggleLock(${ri},${ci},${ti})">
+         ${locked ? '🔒 Locked' : '🔓 Lock pair'}
+       </button>`;
+
+  return `
+    <div class="team">
+      <div class="team-controls">${lockBtn}</div>
+      ${team.players.map((p, pi) => renderPlayer(ri, ci, ti, pi, p, locked)).join('')}
+      ${!locked && team.players.length === 0 ? renderDropZone(ri, ci, ti) : ''}
+    </div>`;
+}
+
+function renderPlayer(ri, ci, ti, pi, name, locked) {
+  const did = `${ri}-${ci}-${ti}-${pi}`;
+  return `
+    <div class="player-card${locked ? ' locked' : ''}"
+         data-did="${did}"
+         draggable="${!locked}"
+         ondragstart="onDragStart(event,${ri},${ci},${ti},${pi})"
+         ondragend="onDragEnd()"
+         ondragover="onDragOver(event)"
+         ondragenter="onDragEnter(event,${ri},${ci},${ti},${pi})"
+         ondragleave="onDragLeave(event,${ri},${ci},${ti},${pi})"
+         ondrop="onDrop(event,${ri},${ci},${ti},${pi})">
+      <div class="avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
+      <span class="player-name">${name}</span>
+      ${locked ? '<span class="lock-icon">🔒</span>' : ''}
+    </div>`;
+}
+
+function renderDropZone(ri, ci, ti) {
+  const did = `empty-${ri}-${ci}-${ti}`;
+  return `
+    <div class="drop-zone"
+         data-did="${did}"
+         ondragover="onDragOver(event)"
+         ondragenter="onDragEnter(event,${ri},${ci},${ti},'empty')"
+         ondragleave="onDragLeave(event,${ri},${ci},${ti},'empty')"
+         ondrop="onDrop(event,${ri},${ci},${ti},'empty')">
+      Drop player here
+    </div>`;
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>
