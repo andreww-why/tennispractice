@@ -436,6 +436,74 @@
     }
     .drop-zone.drag-over { border-color: var(--accent); background: rgba(249,211,66,0.07); color: var(--accent); }
 
+    /* ── Duplicate matchup summary ── */
+    .dup-summary {
+      grid-column: 1 / -1;
+      background: rgba(255, 193, 7, 0.08);
+      border: 1.5px solid var(--gold);
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .dup-summary-title {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dup-summary-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 4px 0 10px;
+    }
+    .dup-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .dup-item {
+      background: var(--surface);
+      border: 1px solid var(--surface2);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .dup-match {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .dup-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px 3px 4px;
+      border-radius: 20px;
+      background: var(--surface2);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .dup-chip .chip-av {
+      width: 16px; height: 16px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.5rem; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .dup-amp { color: var(--muted); font-weight: 700; font-size: 0.7rem; }
+    .dup-vs {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 0.6px;
+    }
+    .dup-loc {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
     /* ── Empty state ── */
     .empty-state {
       grid-column: 1 / -1;
@@ -892,6 +960,131 @@ function onDrop(e, ri, ci, ti, pi) {
 }
 
 // ─────────────────────────────────────────────
+// Duplicate matchups (same opponents in both rounds)
+// ─────────────────────────────────────────────
+function pairKey(a, b) {
+  return a < b ? a + '\0' + b : b + '\0' + a;
+}
+function teamSig(players) {
+  return [...players].sort().join('\0');
+}
+function matchupSig(t0, t1) {
+  const a = teamSig(t0), b = teamSig(t1);
+  return a < b ? a + '\n' + b : b + '\n' + a;
+}
+function courtLabel(court, ci) {
+  if (court.isSingles) return 'Singles';
+  if (court.isRemainder) return 'Remainder';
+  return 'Court ' + (ci + 1);
+}
+function collectOpponentPairs(round, ri) {
+  const list = [];
+  round.courts.forEach((court, ci) => {
+    const t0 = (court.teams[0]?.players || []).filter(Boolean);
+    const t1 = (court.teams[1]?.players || []).filter(Boolean);
+    const loc = { ri, ci, label: courtLabel(court, ci) };
+    t0.forEach(a => t1.forEach(b => {
+      list.push({ key: pairKey(a, b), a, b, loc, t0, t1 });
+    }));
+  });
+  return list;
+}
+function findDuplicateMatchups() {
+  const r1 = collectOpponentPairs(state.rounds[0], 0);
+  const r2ByKey = new Map();
+  collectOpponentPairs(state.rounds[1], 1).forEach(p => {
+    if (!r2ByKey.has(p.key)) r2ByKey.set(p.key, p);
+  });
+  const dupes = [];
+  const seen = new Set();
+  r1.forEach(p => {
+    if (seen.has(p.key)) return;
+    const other = r2ByKey.get(p.key);
+    if (!other) return;
+    seen.add(p.key);
+    dupes.push({
+      key: p.key,
+      names: p.a < p.b ? [p.a, p.b] : [p.b, p.a],
+      r1: p.loc,
+      r2: other.loc
+    });
+  });
+  return dupes;
+}
+function groupDuplicateMatchups(dupes) {
+  const used = new Set();
+  const groups = [];
+  const byR1Court = new Map();
+  dupes.forEach(d => {
+    if (!byR1Court.has(d.r1.ci)) byR1Court.set(d.r1.ci, []);
+    byR1Court.get(d.r1.ci).push(d);
+  });
+  byR1Court.forEach((courtDupes, ci) => {
+    const court = state.rounds[0].courts[ci];
+    const t0 = (court.teams[0]?.players || []).filter(Boolean);
+    const t1 = (court.teams[1]?.players || []).filter(Boolean);
+    const expected = t0.length * t1.length;
+    if (!expected || courtDupes.length !== expected) return;
+    const r2ci = courtDupes[0].r2.ci;
+    if (!courtDupes.every(d => d.r2.ci === r2ci)) return;
+    const r2court = state.rounds[1].courts[r2ci];
+    const u0 = (r2court.teams[0]?.players || []).filter(Boolean);
+    const u1 = (r2court.teams[1]?.players || []).filter(Boolean);
+    if (matchupSig(u0, u1) !== matchupSig(t0, t1)) return;
+    courtDupes.forEach(d => used.add(d.key));
+    groups.push({
+      left: [...t0].sort(),
+      right: [...t1].sort(),
+      r1: courtDupes[0].r1,
+      r2: courtDupes[0].r2
+    });
+  });
+  dupes.forEach(d => {
+    if (used.has(d.key)) return;
+    groups.push({
+      left: [d.names[0]],
+      right: [d.names[1]],
+      r1: d.r1,
+      r2: d.r2
+    });
+  });
+  groups.sort((a, b) => a.left.join(' ').localeCompare(b.left.join(' '))
+    || a.right.join(' ').localeCompare(b.right.join(' ')));
+  return groups;
+}
+function renderDupChip(name) {
+  const c = avatarColor(name);
+  return `<span class="dup-chip"><span class="chip-av" style="background:${c}">${initials(name)}</span>${name}</span>`;
+}
+function renderDupSide(names) {
+  return names.map(renderDupChip).join('<span class="dup-amp">&</span>');
+}
+function renderDupSummary() {
+  if (!state.rounds[0].courts.length || !state.rounds[1].courts.length) return '';
+  const groups = groupDuplicateMatchups(findDuplicateMatchups());
+  if (!groups.length) return '';
+  return `
+    <div class="dup-summary">
+      <div class="dup-summary-title">
+        Duplicate matchups
+        <span class="count-pill">${groups.length}</span>
+      </div>
+      <p class="dup-summary-sub">These players face each other in Round 1 and Round 2.</p>
+      <div class="dup-list">
+        ${groups.map(g => `
+          <div class="dup-item">
+            <div class="dup-match">
+              ${renderDupSide(g.left)}
+              <span class="dup-vs">VS</span>
+              ${renderDupSide(g.right)}
+            </div>
+            <div class="dup-loc">Round 1 ${g.r1.label} · Round 2 ${g.r2.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
 // Render
 // ─────────────────────────────────────────────
 function renderMain() {
@@ -905,7 +1098,7 @@ function renderMain() {
       </div>`;
     return;
   }
-  main.innerHTML = renderRound(0) + renderRound(1);
+  main.innerHTML = renderDupSummary() + renderRound(0) + renderRound(1);
 }
 
 function renderRound(ri) {
